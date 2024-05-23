@@ -2,6 +2,7 @@ import express from 'express';
 import puppeteer from 'puppeteer';
 import { default as PQueue } from 'p-queue';
 import crypto from 'crypto';
+import sharp from 'sharp';
 
 const app = express();
 const port = 3000;
@@ -44,6 +45,7 @@ app.get('/screenshot', async (req, res) => {
   const width = parseInt(req.query.width, 10) || null;
   const height = parseInt(req.query.height, 10) || null;
   const fullPage = req.query.fullPage === 'true';
+  const quality = parseInt(req.query.quality, 10) || 80; // Default quality to 80 if not provided
 
   if (!url) {
     return res.status(400).send('URL parameter is missing');
@@ -77,23 +79,32 @@ app.get('/screenshot', async (req, res) => {
         });
       }
 
-      await page.goto(url, { waitUntil: 'networkidle2' });
+      // Increase the navigation timeout or disable it
+      await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
 
-      // Scroll to load lazy-loaded content
-      await autoScroll(page);
-      
-      // Wait for a few seconds to ensure lazy-loaded content is loaded
-      await sleep(3000);
+      // Check if fullPage is true, if not, wait for the lazy-loaded content
+      if (!fullPage) {
+        // Wait for a few seconds to ensure lazy-loaded content is loaded
+        await sleep(3000);
+      } else {
+        // Scroll to load lazy-loaded content if fullPage is true
+        await autoScroll(page);
+      }
 
-      const screenshotBuffer = await page.screenshot({ encoding: 'binary', fullPage: fullPage });
+      const screenshotBuffer = await page.screenshot({ fullPage: fullPage });
       await browser.close();
 
+      // Compress the screenshot using sharp
+      const compressedBuffer = await sharp(screenshotBuffer)
+        .jpeg({ quality: quality })
+        .toBuffer();
+
       // Generate a random file name
-      const randomFileName = `screenshot_${generateRandomString(8)}.png`;
+      const randomFileName = `screenshot_${generateRandomString(8)}.jpg`;
 
       res.setHeader('Content-Disposition', `attachment; filename=${randomFileName}`);
-      res.setHeader('Content-Type', 'image/png');
-      res.send(screenshotBuffer);
+      res.setHeader('Content-Type', 'image/jpeg');
+      res.send(compressedBuffer);
     } catch (error) {
       console.error(`Failed to capture screenshot: ${error.message}`);
       res.status(500).send(`Failed to capture screenshot: ${error.message}`);
