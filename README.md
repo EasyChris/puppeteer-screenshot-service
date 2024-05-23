@@ -2,6 +2,10 @@
 
 This project provides a web service to capture screenshots of web pages using Puppeteer. It supports various features such as custom viewport sizes, full-page screenshots, and image compression using the `sharp` library. Additionally, it can be run as a Docker container for easy deployment.
 
+## 中文说明
+
+[中文说明](README_CN.md)
+
 ## Features
 
 - Capture screenshots of web pages.
